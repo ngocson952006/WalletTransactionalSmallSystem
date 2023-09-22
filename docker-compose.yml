@@ -1,0 +1,56 @@
+services:
+  wallet_system_postgres:
+    container_name: wallet_system_postgres
+    image: postgres:14.3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /data/postgres
+    volumes:
+      - wallet_system:/data/postgres
+    ports:
+      - "15433:5432"
+    networks:
+      - wallet_system
+    restart: unless-stopped
+
+  redis:
+    image: docker.io/bitnami/redis:7.2
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    ports:
+      - '6379'
+    volumes:
+      - 'wallet_system:/bitnami/redis/data'
+
+  app:
+    build: .
+    command: bundle exec rails s -p 3000 -b '0.0.0.0'
+    volumes:
+      - ".:/app"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - wallet_system_postgres
+    links:
+      - wallet_system_postgres
+    networks:
+      - wallet_system
+    environment:
+      RAILS_ENV: production
+      DB_NAME: wallet_transactional_small_system_production
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: wallet_system_postgres
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379
+
+
+networks:
+  wallet_system:
+    driver: bridge
+
+volumes:
+  wallet_system:
